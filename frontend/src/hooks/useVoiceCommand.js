@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 /**
  * Web Speech API wrapper for German voice commands.
@@ -58,14 +59,41 @@ export function useVoiceCommand({ onResult, lang = "de-DE" } = {}) {
       if (onResult) onResult(transcript);
     };
     r.onend = () => setListening(false);
-    r.onerror = () => setListening(false);
+    r.onerror = (ev) => {
+      setListening(false);
+      const code = ev?.error || "unknown";
+      if (code === "not-allowed" || code === "service-not-allowed") {
+        toast.error("Mikrofon blockiert. Bitte Berechtigung erteilen oder in neuem Tab öffnen.", { duration: 6000 });
+      } else if (code === "no-speech") {
+        toast.info("Nichts gehört — versuch es noch mal.");
+      } else if (code === "network") {
+        toast.error("Netzwerk-Fehler bei der Spracherkennung.");
+      } else if (code === "audio-capture") {
+        toast.error("Kein Mikrofon gefunden.");
+      } else {
+        toast.error(`Spracherkennung: ${code}`);
+      }
+    };
     recRef.current = r;
     return () => { try { r.stop(); } catch {} };
   }, [lang, onResult]);
 
-  const start = useCallback(() => {
+  const start = useCallback(async () => {
     if (!recRef.current) return;
-    try { recRef.current.start(); setListening(true); } catch {}
+    // Explicitly request mic permission first (helps in iframe contexts)
+    try {
+      if (navigator.mediaDevices?.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((t) => t.stop());
+      }
+    } catch (err) {
+      toast.error("Mikrofon-Zugriff verweigert. Öffne die App in einem neuen Tab und erlaube Mikrofon.", { duration: 7000 });
+      return;
+    }
+    try { recRef.current.start(); setListening(true); } catch (e) {
+      // Chrome throws if called while already started
+      setListening(false);
+    }
   }, []);
   const stop = useCallback(() => {
     if (!recRef.current) return;

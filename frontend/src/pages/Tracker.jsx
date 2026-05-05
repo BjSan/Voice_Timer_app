@@ -158,11 +158,12 @@ export default function Tracker() {
             </div>
             <Button
               onClick={start}
-              disabled={!!active || !selectedProject}
+              disabled={!selectedProject}
               className="h-11 px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-2"
               data-testid="start-timer-button"
+              title={active ? "Wechselt zum neuen Projekt (stoppt den laufenden Timer automatisch)" : "Timer starten"}
             >
-              <Play className="w-4 h-4 fill-current" /> Start
+              <Play className="w-4 h-4 fill-current" /> {active ? "Wechseln" : "Start"}
             </Button>
             <Button
               onClick={listening ? stopVoice : startVoice}
