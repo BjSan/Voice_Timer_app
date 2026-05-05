@@ -1,0 +1,97 @@
+{
+  "theme": "hybrid_fullstack",
+  "archetype": "Archetype 4 (Swiss & High-Contrast)",
+  "color_palette": {
+    "light": {
+      "background": "#FFFFFF",
+      "surface": "#F4F4F5",
+      "primary": "#FF3B30", 
+      "secondary": "#E4E4E7",
+      "text": "#09090B",
+      "muted_text": "#71717A",
+      "border": "#D4D4D8",
+      "timer_active": "#FF3B30",
+      "timer_inactive": "#18181B"
+    },
+    "dark": {
+      "background": "#0A0A0A",
+      "surface": "#141414",
+      "primary": "#FF4D4D",
+      "secondary": "#27272A",
+      "text": "#FAFAFA",
+      "muted_text": "#A1A1AA",
+      "border": "#27272A",
+      "timer_active": "#FF4D4D",
+      "timer_inactive": "#FAFAFA"
+    }
+  },
+  "typography": {
+    "heading_font": "Outfit",
+    "body_font": "IBM Plex Sans",
+    "scales": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight",
+      "h3": "text-xl sm:text-2xl font-bold tracking-tight",
+      "h4": "text-lg sm:text-xl font-semibold",
+      "body": "text-base font-normal leading-relaxed",
+      "small": "text-sm font-normal",
+      "overline": "text-xs font-semibold uppercase tracking-[0.2em]"
+    }
+  },
+  "layout_and_spacing": {
+    "spacing_scale": "p-1, p-2, p-4, p-6, p-8, p-12, p-16, p-24",
+    "container_padding": "p-6 or p-8 inside bordered containers to prevent text collision",
+    "grid_strategy": "Control Room Grid for Dashboard: grid-cols-1 md:grid-cols-3 lg:grid-cols-4 with tight gaps (gap-4 or gap-6).",
+    "corners": "Subtle roundness, max 8px border-radius (rounded-md).",
+    "surfaces": "Grid Borders: border-collapse style layout, visible 1px borders (border-border). Dashboard Cards: Flat background, 1px subtle border, no shadow by default."
+  },
+  "components": {
+    "buttons": "Flat, sharp or max 8px radius. High contrast hover states (e.g. hover:bg-slate-900 hover:text-white).",
+    "timer_hero": "Prominent, sticky or floating top/bottom bar for the active timer. Must use Primary color (Red) when active, neutral when stopped.",
+    "voice_command": "Floating Action Button (FAB) or prominent center bottom navigation icon. Must include 'pulse' animation (ring/drop-shadow) when actively listening. Needs visual text fallback (toast) to confirm recognized command.",
+    "forms": "Shadcn UI Form, Input, Select, but heavily customized. Use 1px borders and flat backgrounds.",
+    "tables": "Dense rows, left-aligned, sticky headers for client/project CRUD. No generic card wrappers.",
+    "charts": "Shadcn chart components (Recharts). Minimalist grid lines, use primary contrast colors.",
+    "navigation": "Collapsible sidebar on desktop (left side). Bottom navigation or hamburger on mobile. Must include Dark/Light mode toggle."
+  },
+  "motion_and_interactions": {
+    "hover_states": "Cards: Slight lift (-translate-y-1), subtle shadow (shadow-md). Text colors must be explicitly defined on hover.",
+    "transitions": "Use specific properties (e.g., transition-transform duration-200 ease, opacity 0.2s ease).",
+    "voice_pulse": "Continuous soft pulse drop-shadow for active microphone.",
+    "accessibility": "Respect prefers-reduced-motion. High contrast focus rings for keyboard navigation."
+  },
+  "icons_and_assets": {
+    "icon_library": "@phosphor-icons/react",
+    "installation": "yarn add @phosphor-icons/react",
+    "image_urls": {
+      "login_bg_dark": {
+        "url": "https://static.prod-images.emergentagent.com/jobs/fae0fca1-9134-408c-b716-355eeb483e98/images/1dc00a5bc84addf2d902a80b9bf17e554e6755c9ce40b86f9cf520426499dd8d.png",
+        "description": "Background texture for the login screen in dark mode."
+      },
+      "login_bg_light": {
+        "url": "https://static.prod-images.emergentagent.com/jobs/fae0fca1-9134-408c-b716-355eeb483e98/images/9544abce2b9a8e9f8fb4a9ee7dbde9b723177238afab59405f01bf4057b592b3.png",
+        "description": "Background texture for the login screen in light mode."
+      },
+      "avatar": {
+        "url": "https://images.unsplash.com/photo-1701010886955-abd121955eeb?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHwzfHxwcm9mZXNzaW9uYWwlMjBmcmVlbGFuY2VyJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzc3OTY1NzAxfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Default avatar for the user profile."
+      }
+    }
+  },
+  "testing": {
+    "data_testid_rule": "All interactive and key informational elements MUST include a data-testid attribute in kebab-case format (e.g., data-testid='start-timer-button')."
+  },
+  "instructions_to_main_agent": [
+    "Initialize Shadcn UI and tailwind to build a hybrid_fullstack React + FastAPI time-tracking app.",
+    "Implement light/dark mode toggle using Tailwind's 'dark:' classes. Follow the provided color palette.",
+    "Create the authentication flow. Use the provided login background images depending on the active theme.",
+    "Implement CRUD operations for Clients (including hourly rate) and Projects (linked to clients).",
+    "Build the core Time Tracker feature. Create a prominent sticky timer widget that can be toggled manually.",
+    "Implement Web Speech API for voice commands (e.g., 'Firma Orca, Projekt Vertrieb, Arbeitszeit beginnt jetzt!'). Show a pulsing visual indicator when listening and a toast upon successful parsing.",
+    "Build the Dashboard using the 'Control Room' bento grid pattern. Include time per client/project, hourly rate calculation, and total billing summary.",
+    "Implement a CSV Export feature for selected date ranges/projects.",
+    "Build a daily timeline view listing all time entries for the selected date.",
+    "Ensure the UI is responsive (mobile-first), replacing the desktop sidebar with a bottom or hamburger menu on small screens.",
+    "Apply data-testid attributes extensively to facilitate E2E testing."
+  ]
+}
