@@ -6,6 +6,7 @@ import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../components/ui/dialog";
 import { Play, Mic, Plus, Pencil, Trash2, MicOff, Square } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
 import { toast } from "sonner";
 import { parseVoiceCommand, useVoiceCommand } from "../hooks/useVoiceCommand";
 
@@ -20,32 +21,29 @@ function fromLocalInput(s) { return new Date(s).toISOString(); }
 export default function Tracker() {
   const [clients, setClients] = useState([]);
   const [projects, setProjects] = useState([]);
-  const [entries, setEntries] = useState([]);
   const [recentEntries, setRecentEntries] = useState([]);
   const [active, setActive] = useState(null);
-  const [date, setDate] = useState(todayISO());
   const [selectedProject, setSelectedProject] = useState("");
   const [description, setDescription] = useState("");
   const [manualOpen, setManualOpen] = useState(false);
   const [editEntry, setEditEntry] = useState(null);
   const [voiceHint, setVoiceHint] = useState("");
+  const [periodMode, setPeriodMode] = useState("last5"); // last5 | 7d | 30d | 365d
+  const [deleteId, setDeleteId] = useState(null);
 
   const load = useCallback(async () => {
     try {
-      const start = `${date}T00:00:00`;
-      const end = `${date}T23:59:59`;
-      // recent: 30 days back
-      const rStart = new Date(); rStart.setDate(rStart.getDate() - 30);
-      const [c, p, e, a, r] = await Promise.all([
+      // Load last 365 days of entries (for period filters + quickStarts)
+      const rStart = new Date(); rStart.setDate(rStart.getDate() - 365);
+      const [c, p, a, r] = await Promise.all([
         api.get("/clients"),
         api.get("/projects"),
-        api.get("/time-entries", { params: { start, end } }),
         api.get("/time-entries/active"),
         api.get("/time-entries", { params: { start: rStart.toISOString() } }),
       ]);
-      setClients(c.data); setProjects(p.data); setEntries(e.data); setActive(a.data); setRecentEntries(r.data);
+      setClients(c.data); setProjects(p.data); setActive(a.data); setRecentEntries(r.data);
     } catch (err) { toast.error(formatApiError(err)); }
-  }, [date]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -114,15 +112,32 @@ export default function Tracker() {
   const { listening, supported, start: startVoice, stop: stopVoice } = useVoiceCommand({ onResult: handleVoice });
 
   const delEntry = async (id) => {
-    if (!window.confirm("Eintrag löschen?")) return;
-    try { await api.delete(`/time-entries/${id}`); toast.success("Gelöscht"); load(); }
-    catch (e) { toast.error(formatApiError(e)); }
+    try {
+      await api.delete(`/time-entries/${id}`);
+      toast.success("Eintrag gelöscht");
+      setDeleteId(null);
+      load();
+    } catch (e) { toast.error(formatApiError(e)); }
   };
 
-  const totalSecToday = useMemo(
-    () => entries.filter((e) => e.end_time).reduce((a, b) => a + (b.duration_seconds || 0), 0),
-    [entries]
-  );
+  const totalSecToday = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return recentEntries
+      .filter((e) => e.end_time && e.start_time.slice(0, 10) === today)
+      .reduce((a, b) => a + (b.duration_seconds || 0), 0);
+  }, [recentEntries]);
+
+  // Filtered entries for the "Letzte Einträge" section
+  const filteredEntries = useMemo(() => {
+    const completed = recentEntries.filter((e) => e.end_time);
+    if (periodMode === "last5") {
+      return completed.slice(0, 5);
+    }
+    const days = periodMode === "7d" ? 7 : periodMode === "30d" ? 30 : 365;
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
+    const cutoffISO = cutoff.toISOString();
+    return completed.filter((e) => e.start_time >= cutoffISO);
+  }, [recentEntries, periodMode]);
 
   const projById = useMemo(() => Object.fromEntries(projects.map((p) => [p.id, p])), [projects]);
   const cliById = useMemo(() => Object.fromEntries(clients.map((c) => [c.id, c])), [clients]);
@@ -300,70 +315,136 @@ export default function Tracker() {
         </section>
       )}
 
-      {/* Day timeline */}
+      {/* Recent entries */}
       <section>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-4">
-            <h2 className="font-heading text-2xl font-bold tracking-tight">Tagesansicht</h2>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-auto h-9" data-testid="date-picker" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <h2 className="font-heading text-2xl font-bold tracking-tight">Letzte Einträge</h2>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-md border border-border p-0.5 bg-card" data-testid="period-filter">
+              {[
+                { id: "last5", label: "Letzte 5" },
+                { id: "7d", label: "7 Tage" },
+                { id: "30d", label: "30 Tage" },
+                { id: "365d", label: "Jahr" },
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setPeriodMode(p.id)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded transition-colors ${
+                    periodMode === p.id
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid={`period-${p.id}`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <Dialog open={manualOpen} onOpenChange={(v) => { setManualOpen(v); if (!v) setEditEntry(null); }}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2" onClick={() => setEditEntry(null)} data-testid="add-manual-entry-button">
+                  <Plus className="w-4 h-4" /> Manuell
+                </Button>
+              </DialogTrigger>
+              <ManualEntryDialog
+                key={editEntry?.id || "new"}
+                projects={projects}
+                clients={clients}
+                entry={editEntry}
+                onClose={() => { setManualOpen(false); setEditEntry(null); }}
+                onSaved={() => { setManualOpen(false); setEditEntry(null); load(); }}
+              />
+            </Dialog>
           </div>
-          <Dialog open={manualOpen} onOpenChange={(v) => { setManualOpen(v); if (!v) setEditEntry(null); }}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2" onClick={() => setEditEntry(null)} data-testid="add-manual-entry-button">
-                <Plus className="w-4 h-4" /> Manuell hinzufügen
-              </Button>
-            </DialogTrigger>
-            <ManualEntryDialog
-              key={editEntry?.id || "new"}
-              projects={projects}
-              clients={clients}
-              entry={editEntry}
-              onClose={() => { setManualOpen(false); setEditEntry(null); }}
-              onSaved={() => { setManualOpen(false); setEditEntry(null); load(); }}
-            />
-          </Dialog>
         </div>
 
         <div className="border border-border rounded-md bg-card overflow-hidden" data-testid="entries-list">
-          {entries.length === 0 && (
-            <div className="p-12 text-center text-muted-foreground text-sm">Keine Einträge für diesen Tag.</div>
-          )}
-          {entries.map((e) => {
-            const proj = projById[e.project_id];
-            const cli = cliById[e.client_id];
-            const running = !e.end_time;
-            return (
-              <div key={e.id} className="flex items-center gap-4 px-4 md:px-6 py-3 border-b border-border last:border-b-0 hover:bg-secondary/30 transition-colors group" data-testid={`entry-${e.id}`}>
-                <div className="w-1 h-10 rounded-full flex-shrink-0" style={{ background: proj?.color || "#71717A" }} />
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm truncate">{proj?.name || "—"}</div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {cli?.name} {e.description && <span>· {e.description}</span>}
+          {filteredEntries.length === 0 ? (
+            <div className="p-12 text-center text-muted-foreground text-sm">Keine Einträge im gewählten Zeitraum.</div>
+          ) : (
+            <div className="overflow-y-auto" style={{ maxHeight: filteredEntries.length > 8 ? "480px" : "auto" }}>
+              {filteredEntries.map((e) => {
+                const proj = projById[e.project_id];
+                const cli = cliById[e.client_id];
+                const dt = new Date(e.start_time);
+                return (
+                  <div
+                    key={e.id}
+                    onClick={() => { setEditEntry(e); setManualOpen(true); }}
+                    className="flex items-center gap-4 px-4 md:px-6 py-3 border-b border-border last:border-b-0 hover:bg-secondary/40 transition-colors group cursor-pointer"
+                    data-testid={`entry-${e.id}`}
+                  >
+                    <div className="w-1 h-10 rounded-full flex-shrink-0" style={{ background: proj?.color || "#71717A" }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-sm truncate">{proj?.name || "—"}</div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {cli?.name}{e.description && <span> · {e.description}</span>}
+                      </div>
+                    </div>
+                    <div className="hidden md:block font-mono text-xs text-muted-foreground text-right whitespace-nowrap">
+                      <div>{dt.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "2-digit" })}</div>
+                      <div>
+                        {dt.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
+                        {" – "}
+                        {new Date(e.end_time).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
+                      </div>
+                    </div>
+                    <div className="font-mono font-semibold text-sm timer-digits whitespace-nowrap">
+                      {formatDuration(e.duration_seconds)}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(ev) => { ev.stopPropagation(); setEditEntry(e); setManualOpen(true); }}
+                        className="w-8 h-8 rounded-md hover:bg-secondary flex items-center justify-center opacity-60 group-hover:opacity-100 transition-opacity"
+                        data-testid={`edit-entry-${e.id}`}
+                        title="Bearbeiten"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={(ev) => { ev.stopPropagation(); setDeleteId(e.id); }}
+                        className="w-8 h-8 rounded-md hover:bg-destructive/10 hover:text-destructive flex items-center justify-center opacity-60 group-hover:opacity-100 transition-opacity"
+                        data-testid={`delete-entry-${e.id}`}
+                        title="Löschen"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="hidden sm:block font-mono text-xs text-muted-foreground">
-                  {new Date(e.start_time).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
-                  {" – "}
-                  {e.end_time ? new Date(e.end_time).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "läuft"}
-                </div>
-                <div className={`font-mono font-semibold text-sm timer-digits ${running ? "text-primary" : ""}`}>
-                  {running ? "läuft" : formatDuration(e.duration_seconds)}
-                </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {!running && (
-                    <button onClick={() => { setEditEntry(e); setManualOpen(true); }} className="w-8 h-8 rounded-md hover:bg-secondary flex items-center justify-center" data-testid={`edit-entry-${e.id}`}>
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                  <button onClick={() => delEntry(e.id)} className="w-8 h-8 rounded-md hover:bg-destructive/10 hover:text-destructive flex items-center justify-center" data-testid={`delete-entry-${e.id}`}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
         </div>
+        {filteredEntries.length > 8 && (
+          <div className="mt-2 text-xs text-muted-foreground text-center font-mono">
+            {filteredEntries.length} Einträge · scrollen für mehr
+          </div>
+        )}
       </section>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={(v) => { if (!v) setDeleteId(null); }}>
+        <AlertDialogContent data-testid="delete-confirm-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eintrag wirklich löschen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dieser Schritt kann nicht rückgängig gemacht werden. Die erfasste Zeit geht dauerhaft verloren.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="delete-cancel">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteId && delEntry(deleteId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="delete-confirm"
+            >
+              Löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
