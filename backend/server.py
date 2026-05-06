@@ -434,7 +434,10 @@ async def dashboard_summary(
         total_seconds += dur
         proj = projects.get(e["project_id"])
         cli = clients.get(e.get("client_id"))
-        rate = (proj.get("hourly_rate") if proj and proj.get("hourly_rate") else (cli.get("hourly_rate") if cli else 0)) or 0
+        rate = max(
+            (proj.get("hourly_rate") or 0) if proj else 0,
+            (cli.get("hourly_rate") or 0) if cli else 0,
+        )
         amount = (dur / 3600.0) * rate
         total_amount += amount
 
@@ -507,7 +510,10 @@ async def export_csv(
     for e in entries:
         proj = projects.get(e["project_id"], {})
         cli = clients.get(e.get("client_id"), {})
-        rate = (proj.get("hourly_rate") if proj.get("hourly_rate") else cli.get("hourly_rate", 0)) or 0
+        rate = max(
+            (proj.get("hourly_rate") or 0),
+            (cli.get("hourly_rate") or 0),
+        )
         hours = (e.get("duration_seconds", 0) or 0) / 3600.0
         amount = hours * rate
         st = e["start_time"]

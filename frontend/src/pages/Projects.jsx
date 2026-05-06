@@ -57,18 +57,27 @@ export default function Projects() {
 
       <div className="border border-border rounded-md overflow-hidden" data-testid="projects-list">
         <div className="grid grid-cols-[auto_2fr_1fr_auto_auto] gap-4 px-6 py-3 border-b border-border bg-secondary/30 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <div></div><div>Projekt</div><div>Kunde</div><div className="text-right">Satz</div><div></div>
+          <div></div><div>Projekt</div><div>Kunde</div><div className="text-right">Effektiver Satz</div><div></div>
         </div>
         {projects.length === 0 && <div className="p-12 text-center text-sm text-muted-foreground">Noch keine Projekte.</div>}
         {projects.map((p) => {
           const cli = cliById[p.client_id];
-          const rate = p.hourly_rate ?? cli?.hourly_rate ?? 0;
+          const projRate = p.hourly_rate ?? null;
+          const cliRate = cli?.hourly_rate ?? 0;
+          const effectiveRate = Math.max(projRate ?? 0, cliRate);
           return (
             <div key={p.id} className="grid grid-cols-[auto_2fr_1fr_auto_auto] gap-4 px-6 py-4 border-b border-border last:border-b-0 items-center hover:bg-secondary/30 transition-colors group" data-testid={`project-row-${p.name}`}>
               <div className="w-3 h-3 rounded-full" style={{ background: p.color }} />
               <div className="font-semibold">{p.name}</div>
               <div className="text-sm text-muted-foreground">{cli?.name || "—"}</div>
-              <div className="font-mono text-sm text-right">{rate.toFixed(2)} €/h</div>
+              <div className="text-right font-mono text-sm">
+                <div>{effectiveRate.toFixed(2)} €/h</div>
+                {projRate != null && projRate !== cliRate && (
+                  <div className="text-xs text-muted-foreground">
+                    Projekt: {projRate.toFixed(2)} · Kunde: {cliRate.toFixed(2)}
+                  </div>
+                )}
+              </div>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button onClick={() => { setEdit(p); setOpen(true); }} className="w-8 h-8 rounded-md hover:bg-secondary flex items-center justify-center" data-testid={`edit-project-${p.name}`}>
                   <Pencil className="w-3.5 h-3.5" />
@@ -123,8 +132,11 @@ function ProjectDialog({ project, clients, onClose, onSaved }) {
           </Select>
         </div>
         <div>
-          <Label className="text-xs uppercase tracking-wider font-semibold">Stundensatz (€) — optional, überschreibt Kunde</Label>
-          <Input type="number" min="0" step="0.01" value={rate} onChange={(e) => setRate(e.target.value)} className="mt-1.5" placeholder="leer lassen für Kunden-Satz" data-testid="project-rate-input" />
+          <Label className="text-xs uppercase tracking-wider font-semibold">Stundensatz Projekt (€) — optional</Label>
+          <Input type="number" min="0" step="0.01" value={rate} onChange={(e) => setRate(e.target.value)} className="mt-1.5" placeholder="leer = nur Kunden-Satz nutzen" data-testid="project-rate-input" />
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Für die Abrechnung gilt immer der <strong>höhere</strong> Satz aus Kunde und Projekt.
+          </p>
         </div>
         <div>
           <Label className="text-xs uppercase tracking-wider font-semibold">Farbe</Label>

@@ -93,8 +93,11 @@ function ClientDialog({ client, onClose, onSaved }) {
           <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus className="mt-1.5" placeholder="Firma XYZ" data-testid="client-name-input" />
         </div>
         <div>
-          <Label className="text-xs uppercase tracking-wider font-semibold">Stundensatz (€)</Label>
+          <Label className="text-xs uppercase tracking-wider font-semibold">Stundensatz Kunde (€)</Label>
           <Input type="number" min="0" step="0.01" value={rate} onChange={(e) => setRate(e.target.value)} className="mt-1.5" data-testid="client-rate-input" />
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Wird verwendet, wenn das Projekt keinen eigenen Satz hat. Es gilt immer der <strong>höhere</strong> der beiden Sätze.
+          </p>
         </div>
         <div>
           <Label className="text-xs uppercase tracking-wider font-semibold">Farbe</Label>
