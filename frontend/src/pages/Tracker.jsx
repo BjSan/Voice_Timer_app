@@ -5,7 +5,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../components/ui/dialog";
-import { Play, Mic, Plus, Pencil, Trash2, MicOff } from "lucide-react";
+import { Play, Mic, Plus, Pencil, Trash2, MicOff, Square } from "lucide-react";
 import { toast } from "sonner";
 import { parseVoiceCommand, useVoiceCommand } from "../hooks/useVoiceCommand";
 
@@ -56,6 +56,15 @@ export default function Tracker() {
       await api.post("/time-entries/start", { project_id: selectedProject, description });
       toast.success("Timer gestartet");
       setDescription("");
+      window.dispatchEvent(new CustomEvent("chrono:refresh"));
+      load();
+    } catch (err) { toast.error(formatApiError(err)); }
+  };
+
+  const stop = async () => {
+    try {
+      await api.post("/time-entries/stop");
+      toast.success("Timer gestoppt");
       window.dispatchEvent(new CustomEvent("chrono:refresh"));
       load();
     } catch (err) { toast.error(formatApiError(err)); }
@@ -132,7 +141,7 @@ export default function Tracker() {
       {/* Start panel */}
       <div className="border border-border rounded-md bg-card">
         <div className="p-6 md:p-8">
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto_auto] gap-3 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto_auto_auto] gap-3 items-end">
             <div>
               <Label className="text-xs uppercase tracking-wider font-semibold">Projekt</Label>
               <Select value={selectedProject} onValueChange={setSelectedProject}>
@@ -164,6 +173,16 @@ export default function Tracker() {
               title={active ? "Wechselt zum neuen Projekt (stoppt den laufenden Timer automatisch)" : "Timer starten"}
             >
               <Play className="w-4 h-4 fill-current" /> {active ? "Wechseln" : "Start"}
+            </Button>
+            <Button
+              onClick={stop}
+              disabled={!active}
+              variant="outline"
+              className="h-11 px-5 gap-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground disabled:border-border disabled:text-muted-foreground"
+              data-testid="stop-timer-main-button"
+              title={active ? "Aktiven Timer stoppen" : "Kein Timer läuft"}
+            >
+              <Square className="w-4 h-4 fill-current" /> Stop
             </Button>
             <Button
               onClick={listening ? stopVoice : startVoice}
