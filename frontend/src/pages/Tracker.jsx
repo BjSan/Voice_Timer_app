@@ -314,6 +314,7 @@ export default function Tracker() {
               </Button>
             </DialogTrigger>
             <ManualEntryDialog
+              key={editEntry?.id || "new"}
               projects={projects}
               clients={clients}
               entry={editEntry}

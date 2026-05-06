@@ -45,7 +45,7 @@ export default function Projects() {
               <Plus className="w-4 h-4" /> Neues Projekt
             </Button>
           </DialogTrigger>
-          <ProjectDialog project={edit} clients={clients} onClose={() => { setOpen(false); setEdit(null); }} onSaved={() => { setOpen(false); setEdit(null); load(); }} />
+          <ProjectDialog key={edit?.id || "new"} project={edit} clients={clients} onClose={() => { setOpen(false); setEdit(null); }} onSaved={() => { setOpen(false); setEdit(null); load(); }} />
         </Dialog>
       </header>
 

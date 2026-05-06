@@ -39,7 +39,7 @@ export default function Clients() {
               <Plus className="w-4 h-4" /> Neuer Kunde
             </Button>
           </DialogTrigger>
-          <ClientDialog client={edit} onClose={() => { setOpen(false); setEdit(null); }} onSaved={() => { setOpen(false); setEdit(null); load(); }} />
+          <ClientDialog key={edit?.id || "new"} client={edit} onClose={() => { setOpen(false); setEdit(null); }} onSaved={() => { setOpen(false); setEdit(null); load(); }} />
         </Dialog>
       </header>
 
