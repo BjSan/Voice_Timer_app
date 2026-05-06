@@ -21,6 +21,7 @@ export default function Tracker() {
   const [clients, setClients] = useState([]);
   const [projects, setProjects] = useState([]);
   const [entries, setEntries] = useState([]);
+  const [recentEntries, setRecentEntries] = useState([]);
   const [active, setActive] = useState(null);
   const [date, setDate] = useState(todayISO());
   const [selectedProject, setSelectedProject] = useState("");
@@ -33,13 +34,16 @@ export default function Tracker() {
     try {
       const start = `${date}T00:00:00`;
       const end = `${date}T23:59:59`;
-      const [c, p, e, a] = await Promise.all([
+      // recent: 30 days back
+      const rStart = new Date(); rStart.setDate(rStart.getDate() - 30);
+      const [c, p, e, a, r] = await Promise.all([
         api.get("/clients"),
         api.get("/projects"),
         api.get("/time-entries", { params: { start, end } }),
         api.get("/time-entries/active"),
+        api.get("/time-entries", { params: { start: rStart.toISOString() } }),
       ]);
-      setClients(c.data); setProjects(p.data); setEntries(e.data); setActive(a.data);
+      setClients(c.data); setProjects(p.data); setEntries(e.data); setActive(a.data); setRecentEntries(r.data);
     } catch (err) { toast.error(formatApiError(err)); }
   }, [date]);
 
@@ -123,6 +127,44 @@ export default function Tracker() {
   const projById = useMemo(() => Object.fromEntries(projects.map((p) => [p.id, p])), [projects]);
   const cliById = useMemo(() => Object.fromEntries(clients.map((c) => [c.id, c])), [clients]);
 
+  // Last 4 unique (project_id + description) combos, most-recent first
+  const quickStarts = useMemo(() => {
+    const seen = new Map();
+    const sorted = [...recentEntries].sort((a, b) => (a.start_time < b.start_time ? 1 : -1));
+    for (const e of sorted) {
+      const key = `${e.project_id}::${(e.description || "").trim().toLowerCase()}`;
+      if (!seen.has(key)) {
+        seen.set(key, { project_id: e.project_id, description: (e.description || "").trim() });
+      }
+      if (seen.size >= 4) break;
+    }
+    return Array.from(seen.values());
+  }, [recentEntries]);
+
+  const quickToggle = async (qs) => {
+    // If currently running same project + description -> stop
+    const sameRunning = active && active.project_id === qs.project_id &&
+      ((active.description || "").trim() === qs.description);
+    try {
+      if (sameRunning) {
+        await api.post("/time-entries/stop");
+        toast.success("Timer gestoppt");
+      } else {
+        await api.post("/time-entries/start", {
+          project_id: qs.project_id,
+          description: qs.description,
+        });
+        toast.success("Timer gestartet");
+      }
+      window.dispatchEvent(new CustomEvent("chrono:refresh"));
+      load();
+    } catch (e) { toast.error(formatApiError(e)); }
+  };
+
+  const isRunning = (qs) =>
+    !!active && active.project_id === qs.project_id &&
+    ((active.description || "").trim() === qs.description);
+
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-8 fade-up">
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
@@ -205,6 +247,58 @@ export default function Tracker() {
           {voiceHint && <div className="mt-2 text-xs font-mono text-primary">{voiceHint}</div>}
         </div>
       </div>
+
+      {/* Quick-start buttons (last 4 unique project+description combos) */}
+      {quickStarts.length > 0 && (
+        <section data-testid="quick-starts">
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="font-heading text-lg font-bold tracking-tight">Schnellstart</h2>
+            <span className="text-xs text-muted-foreground">Klick = Start / Stop</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {quickStarts.map((qs, i) => {
+              const proj = projById[qs.project_id];
+              const cli = proj ? cliById[proj.client_id] : null;
+              if (!proj) return null;
+              const running = isRunning(qs);
+              return (
+                <button
+                  key={i}
+                  onClick={() => quickToggle(qs)}
+                  className={`group text-left border rounded-md p-4 transition-all hover:-translate-y-0.5 ${
+                    running
+                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      : "border-border bg-card hover:border-foreground/30"
+                  }`}
+                  data-testid={`quick-start-${i}`}
+                  title={running ? "Aktiv — klicken zum Stoppen" : "Klicken zum Starten"}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: proj.color }} />
+                      <span className="font-semibold text-sm truncate">{proj.name}</span>
+                    </div>
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+                      running ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground group-hover:bg-primary group-hover:text-primary-foreground"
+                    }`}>
+                      {running
+                        ? <Square className="w-3 h-3 fill-current" />
+                        : <Play className="w-3 h-3 fill-current ml-0.5" />}
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">{cli?.name || "—"}</div>
+                  {qs.description && (
+                    <div className="text-xs text-foreground/80 mt-1 line-clamp-2 leading-snug">{qs.description}</div>
+                  )}
+                  {running && (
+                    <div className="mt-2 text-xs font-mono text-primary uppercase tracking-wider font-semibold">● Läuft</div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Day timeline */}
       <section>
