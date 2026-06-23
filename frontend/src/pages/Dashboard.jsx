@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { api, formatApiError, formatHours } from "../lib/api";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -15,15 +15,15 @@ export default function Dashboard() {
   const [start, setStart] = useState(daysAgo(29));
   const [end, setEnd] = useState(daysAgo(0));
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const { data } = await api.get("/dashboard/summary", {
         params: { start: `${start}T00:00:00`, end: `${end}T23:59:59` },
       });
       setSummary(data);
     } catch (e) { toast.error(formatApiError(e)); }
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [start, end]);
+  }, [start, end]);
+  useEffect(() => { load(); }, [load]);
 
   const kpis = useMemo(() => {
     if (!summary) return null;
