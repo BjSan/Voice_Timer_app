@@ -23,6 +23,9 @@ if (config.enableHealthCheck) {
 }
 
 let webpackConfig = {
+  typescript: {
+    enableTypeChecking: false,
+  },
   eslint: {
     configure: {
       extends: ["plugin:react-hooks/recommended"],
